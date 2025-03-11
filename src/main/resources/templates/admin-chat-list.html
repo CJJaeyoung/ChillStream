@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>관리자 채팅방 목록</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/sockjs/1.1.4/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        /* 넷플릭스 스타일 기본 설정 */
+        body {
+       background-color: #141414; /* 어두운 배경 */
+       color: #ffffff; /* 흰색 텍스트 */
+       font-family: Arial, sans-serif;
+       margin: 0;
+       padding: 0;
+   }
+
+   h2 {
+       text-align: center;
+       color: rgba(105, 13, 171, 0.7);
+       padding: 20px;
+   }
+
+   #chatRooms {
+       max-width: 800px;
+       margin: 0 auto;
+       padding: 20px;
+   }
+
+   .chat-room {
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       padding: 15px;
+       margin: 10px 0;
+       border: 1px solid #333;
+       border-radius: 5px;
+       background-color: #222;
+       transition: transform 0.3s, background-color 0.3s;
+   }
+
+   .chat-room:hover {
+       transform: scale(1.02);
+       background-color: #333;
+   }
+
+   .chat-room span {
+       color: #ffffff;
+       font-size: 18px;
+   }
+
+   .chat-room .badge {
+       background-color: rgba(105, 13, 171, 0.7);
+       color: #ffffff;
+       padding: 5px 10px;
+       border-radius: 20px;
+       font-size: 14px;
+       margin-left: 10px;
+   }
+
+   .chat-room .enter-chat {
+       text-decoration: none;
+       color: rgba(105, 13, 171, 0.7);
+       font-weight: bold;
+       padding: 10px 20px;
+       border: 2px solid rgba(105, 13, 171, 0.7);
+       border-radius: 5px;
+       transition: background-color 0.3s, color 0.3s;
+   }
+
+   .chat-room .enter-chat:hover {
+       background-color: rgba(105, 13, 171, 0.7);
+       color: #ffffff;
+   }
+
+   /* 반응형 디자인 */
+   @media (max-width: 768px) {
+       .chat-room {
+           flex-direction: column;
+           text-align: center;
+       }
+
+       .chat-room .enter-chat {
+           margin-top: 10px;
+       }
+   }
+    </style>
+</head>
+<body>
+<h2>관리자 채팅방 목록</h2>
+<div id="chatRooms">
+    <div th:each="room : ${chatRooms}" th:id="'chatRoom-' + ${room.roomId}" class="chat-room">
+        <span th:text="${room.member.name}">사용자 이름</span>
+        <span th:if="${room.hasNewMessage}" class="badge">New</span>
+        <a href="#"
+           th:onclick="'openChatWindow(\'' + ${room.roomId} + '\'); return false;'"
+           class="enter-chat">채팅방 입장</a>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    // SockJS와 STOMP를 사용하여 WebSocket 연결 설정
+var socket = new SockJS('/app/gs-guide-websocket');  // SockJS를 사용해 WebSocket 연결
+var stompClient = Stomp.over(socket);  // STOMP 클라이언트를 사용해 연결 관리
+
+// STOMP 연결 시 실행되는 콜백 함수
+stompClient.connect({}, function(frame) {
+  // 채팅 알림 구독
+  stompClient.subscribe('/topic/admin/notifications', function(notification) {
+      // 받은 메시지를 JSON 형식으로 파싱
+      var data = JSON.parse(notification.body);
+      // 채팅방 업데이트 함수 호출
+      updateChatRoom(data.roomId);
+
+      // 브라우저 알림을 사용할 수 있으면 알림 생성
+      if (Notification.permission === "granted") {
+          new Notification("새로운 메시지", {
+              body: "새로운 채팅 메시지가 도착했습니다.",  // 알림 본문
+              icon: "/img/notification-icon.png"  // 알림 아이콘
+          });
+      }
+  });
+});
+
+// 채팅방 업데이트 함수
+function updateChatRoom(roomId) {
+  var chatRoom = $(`#chatRoom-${roomId}`);  // 해당 roomId에 해당하는 채팅방 요소 선택
+  chatRoom.addClass('new-message');  // 새로운 메시지 클래스 추가하여 시각적 효과 추가
+
+  // 채팅방 깜빡임 효과 추가
+  var blink = setInterval(function() {
+      chatRoom.fadeOut(500).fadeIn(500);  // 500ms 간격으로 채팅방이 깜빡임
+  }, 1000);
+
+  // 5초 후 깜빡임 효과 중지
+  setTimeout(function() {
+      clearInterval(blink);  // 깜빡임 중지
+  }, 5000);
+}
+
+// 페이지 로드 시 알림 권한 요청
+$(document).ready(function() {
+  // 알림 권한이 부여되지 않은 경우 알림 권한 요청
+  if (Notification.permission !== "granted") {
+      Notification.requestPermission();  // 권한 요청
+  }
+});
+
+// 채팅창을 새 창으로 여는 함수
+function openChatWindow(roomId) {
+  const screenWidth = window.screen.width;
+  const windowWidth = 400;
+  const windowHeight = 600;
+  const left = screenWidth - windowWidth;
+  window.open('/chat/' + roomId, '_blank',
+      `width=${windowWidth},height=${windowHeight},left=${left},top=100,location=no,menubar=no,status=no,toolbar=no`);
+}
+</script>
+</body>
+</html> 

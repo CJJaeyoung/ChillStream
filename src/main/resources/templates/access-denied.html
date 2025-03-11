@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>접근 제한</title>
+    <script>
+        window.onload = function() {
+            alert(/*[[${message}]]*/ "접근할 수 없는 채팅방입니다.");
+            window.location.href = "/";  // 메인 페이지로 리다이렉트
+        }
+    </script>
+</head>
+<body>
+    <div th:if="${message}" th:text="${message}"></div>
+</body>
+</html>

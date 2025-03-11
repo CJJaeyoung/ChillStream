@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head>
+  <title>동영상 플레이어</title>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+</head>
+<th:block layout:fragment="css">
+  <style>
+    .video-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        text-align: center;
+    }
+
+    /* Video.js 커스텀 스킨 */
+        .video-js {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background-color: #000;
+        }
+
+    video {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* 컨트롤 바 배경 */
+    .vjs-control-bar {
+        background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7));
+        height: 4em;
+    }
+
+    /* 재생 버튼 */
+    .vjs-big-play-button {
+        background-color: rgba(106, 13, 173, 0.7) !important;
+        border-color: #8a2be2 !important;
+        border-radius: 50% !important;
+        width: 80px !important;
+        height: 80px !important;
+        line-height: 80px !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .vjs-big-play-button:hover {
+        background-color: rgba(138, 43, 226, 0.9) !important;
+        transform: scale(1.1);
+    }
+
+    /* 진행바 */
+    .vjs-play-progress {
+        background-color: #8a2be2;
+    }
+
+    .vjs-slider {
+        background-color: rgba(255,255,255,0.2);
+    }
+
+    /* 볼륨 바 */
+    .vjs-volume-level {
+        background-color: #8a2be2;
+    }
+
+    /* 컨트롤 버튼 호버 효과 */
+    .video-js .vjs-control:hover {
+        color: #8a2be2;
+    }
+
+    /* 버퍼링 스피너 */
+    .vjs-loading-spinner {
+        border: 3px solid rgba(138, 43, 226, 0.7);
+    }
+
+    /* 자막 스타일 */
+    .vjs-text-track-display {
+        font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    .video-js .vjs-text-track-cue {
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 2px 8px;
+        border-radius: 4px;
+    }
+  </style>
+</th:block>
+<th:block layout:fragment="script">
+  <script th:inline="javascript">
+    $(document).ready(function(){
+      var token = $("meta[name='_csrf']").attr("content");
+      var header = $("meta[name='_csrf_header']").attr("content");
+
+      var memberId = [[${memberDto.id}]];
+      var videoId = [[${video.id}]];
+      var adUrl = [[${adDto.adUrl}]];
+      var membershipGrade = [[${memberDto.subscription}]];
+
+      if(this.player) return;
+
+      // videojs 옵션 설정
+      var options = {
+        controls: true,
+        autoplay: true,
+        preload: 'auto',
+        fluid: true,
+        playbackRates: [0.5, 1, 1.25, 1.5, 2],
+        controlBar: {
+          children: [
+            'playToggle',
+            'volumePanel',
+            'currentTimeDisplay',
+            'timeDivider',
+            'durationDisplay',
+            'progressControl',
+            'remainingTimeDisplay',
+            'playbackRateMenuButton',
+            'subtitlesButton',
+            'fullscreenToggle'
+          ]
+        }
+      };
+
+      this.player = videojs('my-video', options, function() {
+        var player = this;
+
+        // 자막 설정
+        player.ready(function() {
+          var tracks = player.textTracks();
+          for (var i = 0; i < tracks.length; i++) {
+            var track = tracks[i];
+            if (track.kind === 'subtitles') {
+              track.mode = 'showing';
+            }
+          }
+        });
+
+        player.ads({
+          liveCuePoints : false //광고 플러그인 초기화
+        });
+
+        //광고 준비
+        player.on('readyforpreroll', function(){
+
+          const adTime = 5; // 광고 스킵 시간
+          const adInterval = setInterval(() => {
+            const remainingTime = adTime - Math.floor(player.currentTime()); // 스킵까지 남은 시간 = 5 - 재생 시간
+            if(remainingTime <= 0){ // 스킵까지 남은 시간에 0이하라면
+              skipButton.innerHTML = 'Skip'; // skip 글자가
+              skipButton.disabled = false; // 나타남
+            }
+            else{
+              skipButton.innerHTML = `${remainingTime}초 후에 광고 Skip`;
+            }
+          }, 1000); // 1초 간격으로
+
+          player.ads.startLinearAdMode(); // 광고 시작
+
+          player.src({ // 광고 url, type 설정
+            src : adUrl,
+            type : "video/mp4"
+          });
+
+          player.one('adended', function(){ //광고 시간이 다 되거나 스킵을 누르면 작동
+            clearInterval(adInterval); // 인터벌 삭제
+            removeSkipButton(); //버튼 삭제
+            player.ads.endLinearAdMode();
+
+            setTimeout(function() { // 충돌 방지용 지연
+              checkProgress();
+              startProgressSaver(2000);
+            }, 100); // 100ms 지연
+          });
+
+          function removeSkipButton() { //스킵, 광고 상세페이지 버튼 삭제 함수
+            skipButton.style.display = 'none';
+            adPageButton.style.display = 'none';
+            if(skipButton.parentNode){
+              skipButton.parentNode.removeChild(skipButton);
+            }
+            if(adPageButton.parentNode){
+              adPageButton.parentNode.removeChild(adPageButton);
+            }
+          }
+
+          //광고 상세 페이지 버튼 생성
+          const adPageButton = document.createElement('button');
+          adPageButton.className = 'vjs-ad-button';
+          adPageButton.style = "position: absolute; bottom: 40px; left: 10px; border: 1px solid #cccccc; color: #cccccc; padding: 5px; font-size: 18px; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; cursor: pointer;";
+          adPageButton.innerHTML = '자세히 보기';
+
+          //광고 상세 페이지 버튼 화면 위에 삽입
+          const playerVideoElement = document.getElementById('my-video');
+          if(playerVideoElement){
+            playerVideoElement.appendChild(adPageButton);
+          }
+
+          //광고 상상세 페이지 버튼 누르면 해당 광고의 url로 이동
+          adPageButton.onclick = function() {
+            const adPageUrl = [[${adDto.adClickUrl}]];
+            window.open(adPageUrl, "_blank");
+          }
+
+          //skip버튼 생성
+          const skipButton = document.createElement('button');
+          skipButton.className = 'vjs-skip-button';
+          skipButton.style = "position: absolute; bottom: 40px; right: 10px; border: 1px solid #cccccc; color: #cccccc; padding: 5px; font-size: 18px; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; cursor: pointer;";
+          skipButton.disabled = true;
+
+          //skip버튼 화면 위에 삽입
+          if(playerVideoElement){
+            playerVideoElement.appendChild(skipButton);
+          }
+
+          //skip버튼 누르면 광고 종료
+          skipButton.onclick = function() {
+            clearInterval(adInterval); // 인터벌 삭제
+            removeSkipButton(); // 버튼 삭제
+            player.ads.endLinearAdMode(); //광고 종료 모드
+
+            setTimeout(function() { // 충돌 방지용 지연
+              console.log('Executing post-ad functions after delay.');
+              checkProgress();
+              startProgressSaver(2000);
+            }, 100); // 100ms 지연
+          }
+        });
+
+        if(membershipGrade === "PREMIUM"){ // 프리미엄 구독자면 광고 스킵
+          checkProgress();
+          startProgressSaver(2000);
+        }
+        else{ //아니면 광고
+          player.trigger('adsready');
+        }
+
+        //서버에서 재생위치 불러오기
+        function checkProgress(){
+          var getUrl = '/api/video-progress/get/' + memberId + '/' + videoId;
+          $.ajax({
+            url : getUrl,
+            type : "GET",
+            dataType : "json",
+            beforeSend : function(xhr){
+              xhr.setRequestHeader(header, token);
+            },
+            success : function(lastPlayedPosition){
+              if(lastPlayedPosition !== 0){
+                player.pause();
+                if(confirm('시청 기록이 있습니다. 이어서 시청하시겠습니까?')){
+                  console.log(lastPlayedPosition);
+                  player.currentTime(lastPlayedPosition);
+                  player.play();
+                }
+                else{
+                  player.ready(function(){
+                    player.currentTime(0);
+                    player.play();
+                  });
+                }
+              }
+            },
+            error : function(jqXHR, status, error){
+              alert(jqXHR.responseText);
+            }
+          });
+        }
+
+        //Interval 함수 (반복 기능)
+        function startProgressSaver(interval){
+          //이전에 실행 중인 Interval이 있으면 제거
+          if(player.progressSaverInterval){
+            clearInterval(player.progressSaverInterval);
+          }
+
+          //새로운 Interval 시작
+          player.progressSaverInterval = setInterval(function(){
+            saveProgress(); //saveProgress을 호출한다
+          }, interval); //interval(매개변수) 간격으로
+        }
+
+        //재생위치 저장
+        function saveProgress(){
+          var currentTime = Math.floor(player.currentTime()); //재생시간 = 영상의 현재 재생시간의 내림
+          if(!isNaN(currentTime) && currentTime > 0){ //재생시간이 숫자면서 0보다 클 때 (isNaN = > is not a number 숫자인지 확인하는 함수)
+            var postUrl = '/api/video-progress/save';
+            var paramData = {
+              memberId : memberId,
+              videoId : videoId,
+              lastPlayedPosition : currentTime
+            }
+
+            var param = JSON.stringify(paramData);
+
+            $.ajax({
+              url : postUrl,
+              type : "POST",
+              beforeSend : function(xhr){
+                xhr.setRequestHeader(header, token);
+              },
+              contentType : "application/json",
+              data : param,
+              error: function (xhr, status, error) {
+                console.error('Error saving video progress:', error);
+              }
+            });
+          }
+        }
+      });
+
+      // 페이지 언로드 시 플레이어 정리
+      $(window).on('beforeunload', function() {
+        if(window.player) {
+          window.player.dispose();
+        }
+      });
+    });
+
+  </script>
+</th:block>
+
+<div layout:fragment="content" th:object="${video}">
+  <input type="hidden" id="videoId" th:value="${video.id}">
+  <div class="video-container">
+    <video
+            id="my-video"
+            class="video-js vjs-default-skin"
+            controls
+            preload="auto"
+            muted
+            autoplay
+            data-setup='{}'>
+      <source th:src="${video.videoUrl}" type="video/mp4">
+      <track kind="subtitles" 
+             th:src="${subtitleDto.subtitleUrl}" 
+             srclang="ko" 
+             label="한국어" 
+             default>
+    </video>
+  </div>
+</div>
+
+</html>

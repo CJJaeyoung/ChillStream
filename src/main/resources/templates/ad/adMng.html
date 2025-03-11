@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+</head>
+
+<th:block layout:fragment="css">
+    <style>
+        .admin-container {
+            background-color: rgba(20, 20, 20, 0.9);
+            color: #ffffff;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .admin-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+        }
+        .add-content-btn {
+            background-color: #6a0dad;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .add-content-btn:hover {
+            background-color: #8b00ff;
+        }
+        .search-section {
+            background-color: rgba(31, 31, 31, 0.7);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(106, 13, 173, 0.3);
+        }
+        .content-table {
+            background-color: rgba(31, 31, 31, 0.7);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(106, 13, 173, 0.3);
+        }
+        .table {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0;
+        }
+        .table thead {
+            background-color: rgba(47, 47, 47, 0.9);
+        }
+        .table thead th {
+            border-bottom: 2px solid rgba(106, 13, 173, 0.3);
+            color: #fff;
+            font-weight: bold;
+            background-color: rgba(47, 47, 47, 0.95);
+        }
+        .table td, .table th {
+            border-color: rgba(106, 13, 173, 0.2);
+            vertical-align: middle;
+            text-align: center;
+            padding: 1rem;
+            background-color: rgba(20, 20, 20, 0.6);
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .table tbody tr:hover {
+            background-color: rgba(106, 13, 173, 0.2) !important;
+        }
+        .table a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+        }
+        .table a:hover {
+            color: #6a0dad;
+        }
+        .pagination {
+            margin-top: 2rem;
+        }
+        .page-link {
+            background-color: rgba(31, 31, 31, 0.7);
+            border-color: rgba(106, 13, 173, 0.3);
+            color: #ffffff;
+        }
+        .page-link:hover {
+            background-color: rgba(106, 13, 173, 0.7);
+            border-color: rgba(106, 13, 173, 0.5);
+            color: #ffffff;
+        }
+        .page-item.active .page-link {
+            background-color: rgba(106, 13, 173, 0.8);
+            border-color: rgba(106, 13, 173, 0.5);
+        }
+        select.form-control, input.form-control {
+            background-color: rgba(47, 47, 47, 0.9);
+            border: 1px solid rgba(106, 13, 173, 0.3);
+            color: #ffffff;
+            margin-right: 10px;
+        }
+        select.form-control:focus, input.form-control:focus {
+            background-color: rgba(47, 47, 47, 0.9);
+            border-color: rgba(106, 13, 173, 0.5);
+            color: #ffffff;
+            box-shadow: 0 0 0 0.2rem rgba(106, 13, 173, 0.25);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        .action-btn {
+            background: none;
+            border: none;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+        .action-btn img {
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            width: 24px;
+            height: 24px;
+        }
+        .action-btn:hover img {
+            opacity: 1;
+            filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(230deg);
+        }
+
+        .search-section .form-control::placeholder{
+            color: rgba(170, 170, 170, 0.7)
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 2rem !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            font-size: 1.1rem;
+        }
+
+.pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 2rem;
+        gap: 5px;
+    }
+
+    .page-item {
+        list-style: none;
+    }
+
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+        height: 40px;
+        padding: 0.5rem;
+        background-color: rgba(31, 31, 31, 0.7);
+        border: 1px solid rgba(106, 13, 173, 0.3);
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .page-link:hover {
+        background-color: rgba(106, 13, 173, 0.7);
+        border-color: rgba(106, 13, 173, 0.5);
+        color: #ffffff;
+    }
+
+    .page-item.active .page-link {
+        background-color: rgba(106, 13, 173, 0.8);
+        border-color: rgba(106, 13, 173, 0.5);
+        color: #ffffff;
+    }
+
+    .page-item.disabled .page-link {
+        background-color: rgba(31, 31, 31, 0.4);
+        border-color: rgba(106, 13, 173, 0.2);
+        color: rgba(255, 255, 255, 0.5);
+        cursor: not-allowed;
+    }
+
+    .page-link img {
+        filter: brightness(0) invert(1);
+        opacity: 0.9;
+        width: 20px;
+        height: 20px;
+    }
+
+    .page-link:hover img {
+        opacity: 1;
+        filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(230deg);
+    }
+
+    /* 반응형 디자인 */
+    @media (max-width: 768px) {
+        .pagination {
+            gap: 3px;
+        }
+
+        .page-link {
+            min-width: 35px;
+            height: 35px;
+            padding: 0.3rem;
+        }
+
+        .page-link img {
+            width: 16px;
+            height: 16px;
+        }
+    }
+    </style>
+</th:block>
+
+<div layout:fragment="content" class="admin-container">
+    <div class="admin-header">
+        <h1 class="admin-title">광고 관리</h1>
+        <a href="/admin/ad/new" class="add-content-btn">
+            <i class="fas fa-plus"></i> 새 광고 추가
+        </a>
+    </div>
+
+    <div class="search-section">
+        <form th:action="@{'/admin/ads/' + ${ads.number}}" role="form" method="get" th:object="${adSearchDto}">
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <select th:field="*{searchDateType}" class="form-control">
+                        <option value="all">전체기간</option>
+                        <option value="1d">1일</option>
+                        <option value="1w">1주</option>
+                        <option value="1m">1개월</option>
+                        <option value="6m">6개월</option>
+                    </select>
+                </div>
+                <select th:field="*{searchBy}" class="form-control" style="width:auto;">
+                    <option value="title">제목</option>
+                    <option value="createdBy">등록자</option>
+                </select>
+                <div class="col-auto">
+                    <input th:field="*{searchQuery}" type="text" class="form-control" placeholder="검색어를 입력해주세요">
+                </div>
+                <div class="col-auto">
+                    <button id="searchBtn" type="submit" class="add-content-btn">
+                        <i class="fas fa-search"></i> 검색
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="content-table">
+        <table class="table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>제목</th>
+                <th>등록자</th>
+                <th>등록일</th>
+                <th>관리</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${ads.getTotalElements() == 0}">
+                <td colspan="7" class="no-results">
+                    검색 조건에 맞는 콘텐츠가 없습니다
+                </td>
+            </tr>
+            <tr th:unless="${ads.getTotalElements() == 0}"
+                th:each="ad, status : ${ads.getContent()}">
+                <td th:text="${ad.id}"></td>
+                <td>
+                    <span th:text="${ad.title}"></span>
+                </td>
+                <td th:text="${ad.createdBy}"></td>
+                <td th:text="${#temporals.format(ad.regTime, 'yyyy-MM-dd HH:mm')}"></td>
+                <td>
+                    <div class="action-buttons">
+                        <a th:href="@{'/admin/ad/' + ${ad.id}}" class="action-btn">
+                            <img src="/img/correction_btn.png" alt="수정" title="수정">
+                        </a>
+                        <button type="button" class="action-btn" th:onclick="'deleteAd(' + ${ad.id} + ')'">
+                            <img src="/img/delete_btn.png" alt="삭제" title="삭제">
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션은 기존 코드 유지 -->
+    <div th:with="start=${(ads.number/maxPage)*maxPage +1},
+        end=(${(ads.totalPages == 0) ?
+        1 : (start +(maxPage-1) < ads.totalPages ? start + (maxPage - 1) : ads.totalPages)})">
+        <ul class="pagination">
+            <li class="page-item" th:classappend="${ads.first}?'disabled'">
+                <a th:onclick="'javascript:page('+${ads.number - 1} + ')'" aria-label="Previous"
+                   class="page-link"> <!-- 위쪽의 page함수 호출 -->
+                    <img src="/img/left_btn.png" alt="이전" title="이전">
+                </a>
+            </li>
+            <li class="page-item" th:each="page: ${#numbers.sequence(start,end)}"
+                th:classappend="${ads.number eq page-1}?'active':''">
+                <a th:onclick="'javascript:page('+ ${page-1} +')'" th:inline="text" class="page-link">[[${page}]]</a>
+            </li>
+            <li class="page-item" th:classappend="${ads.last}?'disabled'">
+                <a th:onclick="'javascript:page(' + ${ads.number + 1} + ')'" aria-label="Next" class="page-link">
+                    <img src="/img/right_btn.png" alt="다음" title="다음">
+                </a>
+            </li>
+        </ul>
+    </div>
+
+</div>
+
+<th:block layout:fragment="script">
+    <script th:inline="javascript">
+        $(document).ready(function(){
+            $("searchBtn").on("click",function(e){
+                e.preventDefault(); //검색버튼 클릭 시 form 태그 전송을 막는다.
+                page(0);
+            });
+        });
+
+        function page(page){
+            var searchDateType = $("#searchDateType").val();
+            var searchGenre = $("#searchGenre").val();
+            var searchBy = $("#searchBy").val();
+            var searchQuery = $("#searchQuery").val();
+
+            location.href = "/admin/ads/"+ page + "?searchDateType=" + searchDateType
+            + "&searchGenre=" + searchGenre + "&searchBy=" + searchBy
+            + "&searchQuery=" + searchQuery;
+        }
+
+        function deleteAd(adId){
+              var url = '/admin/ad/'+ adId;
+              var token = $("meta[name='_csrf']").attr("content");
+              var header = $("meta[name='_csrf_header']").attr("content");
+
+              if(confirm("정말로 삭제하시겠습니까?")){
+                    $.ajax({
+                          url: url,
+                          type: "DELETE",
+                          cache : false,
+                          beforeSend : function(xhr){
+                            xhr.setRequestHeader(header, token);
+                          },
+                          success: function(result, status) {
+                            // 삭제 성공 시 현재 페이지 리로드
+                            location.href = "/admin/ads";
+                          },
+                          error: function(jqXHR, status, error){
+                            alert(error);
+                          }
+                    });
+              }
+        }
+    </script>
+</th:block>
+</html>

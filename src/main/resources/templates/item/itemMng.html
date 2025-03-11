@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+</head>
+
+<th:block layout:fragment="css">
+    <style>
+        .admin-container {
+            background-color: rgba(20, 20, 20, 0.9);
+            color: #ffffff;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .admin-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+        }
+        .add-content-btn {
+            background-color: #6a0dad;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .add-content-btn:hover {
+            background-color: #8b00ff;
+            color: white;
+            text-decoration: none;
+        }
+        .search-section {
+            background-color: rgba(31, 31, 31, 0.7);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(106, 13, 173, 0.3);
+        }
+        .content-table {
+            background-color: rgba(31, 31, 31, 0.7);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(106, 13, 173, 0.3);
+        }
+        .table {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0;
+        }
+        .table thead {
+            background-color: rgba(47, 47, 47, 0.9);
+        }
+        .table thead th {
+            border-bottom: 2px solid rgba(106, 13, 173, 0.3);
+            color: #fff;
+            font-weight: bold;
+            background-color: rgba(47, 47, 47, 0.95);
+        }
+        .table td, .table th {
+            border-color: rgba(106, 13, 173, 0.2);
+            vertical-align: middle;
+            text-align: center;
+            padding: 1rem;
+            background-color: rgba(20, 20, 20, 0.6);
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .table tbody tr:hover {
+            background-color: rgba(106, 13, 173, 0.2) !important;
+        }
+        .table a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+        }
+        .table a:hover {
+            color: #6a0dad;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 2rem;
+            gap: 5px;
+        }
+        .page-item {
+            list-style: none;
+        }
+        .page-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            height: 40px;
+            padding: 0.5rem;
+            background-color: rgba(31, 31, 31, 0.7);
+            border: 1px solid rgba(106, 13, 173, 0.3);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .page-link:hover {
+            background-color: rgba(106, 13, 173, 0.7);
+            border-color: rgba(106, 13, 173, 0.5);
+            color: #ffffff;
+        }
+        .page-item.active .page-link {
+            background-color: rgba(106, 13, 173, 0.8);
+            border-color: rgba(106, 13, 173, 0.5);
+            color: #ffffff;
+        }
+        .page-item.disabled .page-link {
+            background-color: rgba(31, 31, 31, 0.4);
+            border-color: rgba(106, 13, 173, 0.2);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+        }
+        .page-link img {
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            width: 20px;
+            height: 20px;
+        }
+        .page-link:hover img {
+            opacity: 1;
+            filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(230deg);
+        }
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .pagination {
+                gap: 3px;
+            }
+            .page-link {
+                min-width: 35px;
+                height: 35px;
+                padding: 0.3rem;
+            }
+            .page-link img {
+                width: 16px;
+                height: 16px;
+            }
+        }
+        select.form-control, input.form-control {
+            background-color: rgba(47, 47, 47, 0.9);
+            border: 1px solid rgba(106, 13, 173, 0.3);
+            color: #ffffff;
+            margin-right: 10px;
+        }
+        select.form-control:focus, input.form-control:focus {
+            background-color: rgba(47, 47, 47, 0.9);
+            border-color: rgba(106, 13, 173, 0.5);
+            color: #ffffff;
+            box-shadow: 0 0 0 0.2rem rgba(106, 13, 173, 0.25);
+        }
+        .genre-badge {
+            background-color: #6a0dad;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .action-btn img {
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            width: 24px;
+            height: 24px;
+        }
+
+        .action-btn:hover img {
+            opacity: 1;
+            filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(230deg);
+        }
+
+        /* 테이블 수정 */
+        .table td {
+            vertical-align: middle;
+        }
+
+        /* 테이블 정렬 스타일 추가 */
+        .table th, 
+        .table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .search-section .form-control::placeholder{
+            color: rgba(170, 170, 170, 0.7)
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 2rem !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            font-size: 1.1rem;
+        }
+
+        .page-link img{
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            width: 20px;
+            height: 20px;
+        }
+
+        .page-link:hover img{
+            opacity: 1;
+            filter: brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(230deg);
+        }
+
+    </style>
+</th:block>
+
+<div layout:fragment="content" class="admin-container">
+    <div class="admin-header">
+        <h1 class="admin-title">콘텐츠 관리</h1>
+        <a href="/admin/item/new" class="add-content-btn">
+            <i class="fas fa-plus"></i> 새 콘텐츠 추가
+        </a>
+    </div>
+
+    <div class="search-section">
+        <form th:action="@{'/admin/items/' + ${items.number}}" role="form" method="get" th:object="${itemSearchDto}">
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <select th:field="*{searchDateType}" class="form-control">
+                        <option value="all">전체기간</option>
+                        <option value="1d">1일</option>
+                        <option value="1w">1주</option>
+                        <option value="1m">1개월</option>
+                        <option value="6m">6개월</option>
+                    </select>
+                </div>
+                <select th:field="*{searchMainGenre}" class="form-control" style="width:auto;">
+                    <option value="">메인 장르(전체)</option>
+                    <option value="MOVIE">영화</option>
+                    <option value="DRAMA">드라마</option>
+                    <option value="ENTERTAINMENT">예능</option>
+                    <option value="ANIMATION">애니메이션</option>
+                </select>
+                <select th:field="*{searchSubGenre}" class="form-control" style="width:auto;">
+                    <option value="">서브 장르(전체)</option>
+                    <option value="FANTASY">판타지</option>
+                    <option value="SF">SF</option>
+                    <option value="DRAMA">드라마</option>
+                    <option value="ROMANCE">로맨스</option>
+                    <option value="COMEDY">코미디</option>
+                    <option value="ACTION">액션</option>
+                    <option value="THRILLER">스릴러</option>
+                    <option value="HISTORY">역사</option>
+                    <option value="HORROR">공포</option>
+                    <option value="MYSTERY">미스터리</option>
+                    <option value="CRIME">범죄</option>
+                    <option value="ADVENTURE">모험</option>
+                    <option value="FAMILY">가족</option>
+                    <option value="WAR">전쟁</option>
+                    <option value="WESTERN">서부</option>
+                    <option value="DOCUMENTARY">다큐멘터리</option>
+                    <option value="MUSIC">음악</option>
+                    <option value="ANIMATION">애니메이션</option>
+                    <option value="VARIETY">예능</option>
+                    <option value="ETC">기타</option>
+                </select>
+                <select th:field="*{searchBy}" class="form-control" style="width:auto;">
+                    <option value="title">제목</option>
+                    <option value="createdBy">등록자</option>
+                </select>
+                <div class="col-auto">
+                    <input th:field="*{searchQuery}" type="text" class="form-control" placeholder="검색어를 입력해주세요">
+                </div>
+                <div class="col-auto">
+                    <button id="searchBtn" type="submit" class="add-content-btn">
+                        <i class="fas fa-search"></i> 검색
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="content-table">
+        <table class="table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>제목</th>
+                <th>메인 장르</th>
+                <th>서브 장르</th>
+                <th>등록자</th>
+                <th>등록일</th>
+                <th>관리</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${items.getTotalElements() == 0}">
+                <td colspan="7" class="no-results">
+                    검색 조건에 맞는 콘텐츠가 없습니다
+                </td>
+            </tr>
+            <tr th:unless="${items.getTotalElements() == 0}" 
+                th:each="item, status : ${items.getContent()}">
+                <td th:text="${item.id}"></td>
+                <td>
+                    <span th:text="${item.title}"></span>
+                </td>
+                <td>
+                    <span class="genre-badge" th:text="${item.mainGenre.getDisplayName()}"></span>
+                </td>
+                <td>
+                    <span class="genre-badge" th:text="${item.subGenre.getDisplayName()}"></span>
+                </td>
+                <td th:text="${item.createdBy}"></td>
+                <td th:text="${#temporals.format(item.regTime, 'yyyy-MM-dd HH:mm')}"></td>
+                <td>
+                    <div class="action-buttons">
+                        <a th:href="@{/admin/{id}/videos(id=${item.id})}" class="action-btn">
+                            <img src="/img/video_edit_btn.png" alt="영상 관리" title="영상 관리">
+                        </a>
+                        <a th:href="@{'/admin/item/' + ${item.id}}" class="action-btn">
+                            <img src="/img/correction_btn.png" alt="수정" title="수정">
+                        </a>
+                        <button type="button" class="action-btn" th:onclick="'deleteItem(' + ${item.id} + ')'">
+                            <img src="/img/delete_btn.png" alt="삭제" title="삭제">
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:with="start=${(items.number/maxPage)*maxPage + 1},
+        end=(${(items.totalPages == 0) ? 1 : (start + (maxPage-1) < items.totalPages ? start + (maxPage-1) : items.totalPages)})">
+        <ul class="pagination">
+            <li class="page-item" th:classappend="${items.first}?'disabled'">
+                <a th:onclick="'javascript:page(' + ${items.number - 1} + ')'" aria-label="Previous"
+                   class="page-link">
+                    <img src="/img/left_btn.png" alt="이전" title="이전">
+                </a>
+            </li>
+            <li class="page-item" th:each="page: ${#numbers.sequence(start,end)}"
+                th:classappend="${items.number eq page-1}?'active':''">
+                <a th:onclick="'javascript:page(' + ${page-1} + ')'" th:inline="text" class="page-link">[[${page}]]</a>
+            </li>
+            <li class="page-item" th:classappend="${items.last}?'disabled'">
+                <a th:onclick="'javascript:page(' + ${items.number + 1} + ')'" aria-label="Next" class="page-link">
+                    <img src="/img/right_btn.png" alt="다음" title="다음">
+                </a>
+            </li>
+        </ul>
+    </div>
+
+</div>
+
+<th:block layout:fragment="script">
+    <script th:inline="javascript">
+        $(document).ready(function(){
+            $("#searchBtn").on("click",function(e){
+                e.preventDefault();
+                page(0);
+            });
+        });
+
+        function page(page){
+            var searchDateType = $("#searchDateType").val();
+            var searchMainGenre = $("#searchMainGenre").val();
+            var searchSubGenre = $("#searchSubGenre").val();
+            var searchBy = $("#searchBy").val();
+            var searchQuery = $("#searchQuery").val();
+
+            location.href = "/admin/items/" + page 
+                + "?searchDateType=" + searchDateType
+                + "&searchMainGenre=" + searchMainGenre 
+                + "&searchSubGenre=" + searchSubGenre 
+                + "&searchBy=" + searchBy 
+                + "&searchQuery=" + searchQuery;
+        }
+
+        function deleteItem(itemId){
+              var url = '/admin/item/'+ itemId;
+              var token = $("meta[name='_csrf']").attr("content");
+              var header = $("meta[name='_csrf_header']").attr("content");
+
+              if(confirm("정말로 삭제하시겠습니까?")){
+
+                    $.ajax({
+                          url: url,
+                          type: "DELETE",
+                          cache : false,
+                          beforeSend : function(xhr){
+                            xhr.setRequestHeader(header, token);
+                          },
+                          success(result,status){
+                            location.href="/admin/items";
+                          },
+                          error(jqXHR,status,error){
+                            alert(error);
+                          }
+                    });
+              }
+        }
+    </script>
+</th:block>
+</html>

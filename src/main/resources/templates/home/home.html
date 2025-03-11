@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{layouts/layout}">
+
+<head>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+</head>
+
+<th:block layout:fragment="script">
+    <script th:inline="javascript">
+        // 전역 변수로 CSRF 토큰 설정
+        let csrfToken;
+        let csrfHeader;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // CSRF 토큰 초기화
+            csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+            
+            const movieList = document.getElementById('movieList');
+            const saveButton = document.getElementById('saveSelection');
+            const closeButton = document.getElementById('closePopup');
+            let selectedMovies = [];
+            let step = 1; // 현재 단계
+
+            if (!movieList || !saveButton || !closeButton) {
+                console.error('필수 요소를 찾을 수 없습니다.');
+                return;
+            }
+
+            // 랜덤 영화 로드 함수
+            const loadRandomMovies = async () => {
+                try {
+                    console.log(`랜덤 영화 로드 시작: 단계 ${step}`);
+                    const response = await fetch('/movies/random');
+                    if (!response.ok) {
+                        console.error('API 호출 실패:', response.statusText);
+                        return;
+                    }
+                    const movies = await response.json();
+                    console.log('받아온 영화 데이터:', movies);
+
+                    // 기존 목록 초기화
+                    movieList.innerHTML = '';
+                    movies.forEach(movie => {
+                        const movieCard = document.createElement('div');
+                        movieCard.className = 'thumbnail-card';
+                        movieCard.innerHTML = `
+                            <img src="${movie.thumbnailUrl}" alt="${movie.title}">
+                            <div>${movie.title}</div>
+                        `;
+                        movieCard.addEventListener('click', () => {
+                            if (selectedMovies.find(m => m.id === movie.id)) {
+                                // 이미 선택된 영화인 경우 선택 해제
+                                selectedMovies = selectedMovies.filter(m => m.id !== movie.id);
+                                movieCard.classList.remove('selected');
+                            } else if (selectedMovies.length < 3) {
+                                // 최대 3개까지만 선택 가능
+                                selectedMovies.push({
+                                    id: movie.id,
+                                    mainGenre: movie.mainGenre,
+                                    subGenre: movie.subGenre,
+                                    priority: selectedMovies.length + 1
+                                });
+                                movieCard.classList.add('selected');
+                            } else {
+                                alert('최대 3개의 영화를 선택할 수 있습니다.');
+                            }
+                        });
+                        movieList.appendChild(movieCard);
+                    });
+                } catch (error) {
+                    console.error('데이터 로드 실패:', error);
+                }
+            };
+
+            // 선택한 영화 저장 함수
+            const saveSelectedMovies = async () => {
+                if (selectedMovies.length < 3) {
+                    alert('최소 3개의 영화를 선택해주세요.');
+                    return;
+                }
+                try {
+                    console.log('저장 요청 데이터:', selectedMovies);
+                    const response = await fetch(`/movies/save-selection?memberId=1`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            [csrfHeader]: csrfToken
+                        },
+                        body: JSON.stringify(selectedMovies),
+                    });
+                    if (response.ok) {
+                        selectedMovies = []; // 선택 초기화
+                        step++; // 다음 단계로 진행
+
+                        if (step <= 5) {
+                            // 5단계 데이터를 로드
+                            await loadRandomMovies();
+                        }
+
+                        if (step === 5) {
+                            // 5단계 완료 후 "다음" 버튼 숨기고 "종료" 버튼 표시
+                            saveButton.style.display = 'none';
+                            closeButton.style.display = 'block';
+                        }
+
+                    } else {
+                        console.error('저장 실패 응답:', await response.text());
+                        alert('저장에 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('저장 중 오류 발생:', error);
+                }
+            };
+
+            closeButton.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/home/first-login-complete', {
+                        method: 'POST',
+                        headers: {
+                            [csrfHeader]: csrfToken
+                        }
+                    });
+                    if (response.ok) {
+                        alert('선호도 조사가 종료되었습니다.');
+                        popup.style.display = 'none'; // 팝업 닫기
+                    } else {
+                        alert('종료 요청에 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('종료 요청 중 오류 발생:', error);
+                }
+            });
+
+            saveButton.addEventListener('click', saveSelectedMovies);
+
+            // 페이지 로드 시 랜덤 영화 데이터 가져오기
+            await loadRandomMovies();
+
+            initializePreview();
+        });
+
+        function filterCategory(category) {
+            let targetId;
+            switch(category) {
+                case 'LATEST':
+                    targetId = 'latestContents';
+                    break;
+                case 'DRAMA':
+                    targetId = 'top10TvShows';
+                    break;
+                case 'MOVIE':
+                    targetId = 'top10Movies';
+                    break;
+                case 'ANIMATION':
+                    targetId = 'top10Animation';
+                    break;
+                case 'ENTERTAINMENT':
+                    targetId = 'top10Entertainment';
+                    break;
+            }
+
+            if (targetId) {
+                const element = document.getElementById(targetId);
+                if (element) {
+                    element.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            }
+        }
+
+        // 카테고리 버튼 활성화 상태 관리
+        document.addEventListener('scroll', () => {
+            const sections = {
+                'top10TvShows': 'DRAMA',
+                'top10Movies': 'MOVIE',
+                'top10Animation': 'ANIMATION',
+                'top10Entertainment': 'ENTERTAINMENT',
+                'latestContents': 'LATEST'
+            };
+
+            const scrollPosition = window.scrollY + 100;
+
+            Object.entries(sections).forEach(([sectionId, category]) => {
+                const section = document.getElementById(sectionId);
+                if (!section) return;
+
+                const sectionTop = section.offsetTop;
+                const sectionBottom = sectionTop + section.offsetHeight;
+
+                if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                    document.querySelectorAll('.category-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    const button = document.querySelector(`[onclick="filterCategory('${category}')"]`);
+                    if (button) {
+                        button.classList.add('active');
+                    }
+                }
+            });
+        });
+
+        // 채팅 버튼 스크립트
+        document.addEventListener('DOMContentLoaded', function() {
+            var roomId = "[[${memberId}]]" || null;  // 서버에서 전달받은 memberId 사용
+            console.log("memberId: "+roomId);
+
+            const chatButton = document.getElementById('chatButton');
+            if (chatButton) {
+                chatButton.addEventListener('click', function() {
+                    if (!roomId) {  // null 체크 추가
+                        alert('로그인이 필요합니다.');
+                        window.location.href = '/members/login';
+                        return;
+                    }
+                    console.log("roomId: "+roomId);
+
+                    // 서버에 전송할 데이터 준비
+                    const data = { memberId: roomId };
+                    console.log("Sending data:", data);
+
+                    // 채팅방 생성 API 호출
+                    fetch('/create-room', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            [csrfHeader]: csrfToken
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(async response => {
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error('Server response:', errorText);
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(roomId => {
+                        console.log("Received roomId:", roomId);
+                        // 화면 오른쪽에 새 창 열기
+                        const screenWidth = window.screen.width;
+                        const windowWidth = 400;
+                        const windowHeight = 600;
+                        const left = screenWidth - windowWidth;
+                        window.open('/chat/' + roomId, '_blank', `width=${windowWidth},height=${windowHeight},left=${left},top=100,location=no,menubar=no,status=no,toolbar=no`);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('채팅방 생성에 실패했습니다.');
+                    });
+                });
+            }
+            // AI 챗봇 버튼 클릭 이벤트
+            const chatIcon = document.querySelector('.chat-icon');
+            if (chatIcon) {
+                chatIcon.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // 화면 오른쪽에 새 창 열기 (채팅 창 위에 위치)
+                    const screenWidth = window.screen.width;
+                    const windowWidth = 400;
+                    const windowHeight = 600;
+                    const left = screenWidth - windowWidth;
+                    window.open('/api/chatbot', '_blank', `width=${windowWidth},height=${windowHeight},left=${left},top=100,location=no,menubar=no,status=no,toolbar=no`);
+                });
+            }
+        });
+
+        const sliderStates = {
+            'recommendedContents': { currentIndex: 0 },
+            'top10Trending': { currentIndex: 0 },
+            'top10Movies': { currentIndex: 0 },
+            'top10TvShows': { currentIndex: 0 },
+            'top10Animation': { currentIndex: 0 },
+            'top10Entertainment': { currentIndex: 0 },
+            'latestContents': { currentIndex: 0 }
+        };
+
+        const itemsPerPage = 5;
+
+        function slideContent(sliderId, direction) {
+            const container = document.querySelector(`#${sliderId} .thumbnail-grid`);
+            const items = document.querySelectorAll(`#${sliderId} .thumbnail-card`);
+            const maxIndex = Math.ceil(items.length / itemsPerPage) - 1;
+
+            if (direction === 'next' && sliderStates[sliderId].currentIndex < maxIndex) {
+                sliderStates[sliderId].currentIndex++;
+            } else if (direction === 'prev' && sliderStates[sliderId].currentIndex > 0) {
+                sliderStates[sliderId].currentIndex--;
+            }
+
+            const translateX = -(sliderStates[sliderId].currentIndex * 100);
+            container.style.transform = `translateX(${translateX}%)`;
+
+            updateNavigationButtons(sliderId);
+        }
+
+        function updateNavigationButtons(sliderId) {
+            const container = document.getElementById(sliderId);
+            if (!container) return;  // 컨테이너가 없으면 함수 종료
+
+            const prevButton = container.querySelector('.carousel-control-prev');
+            const nextButton = container.querySelector('.carousel-control-next');
+
+            if (!prevButton || !nextButton) return;  // 버튼이 없으면 함수 종료
+
+            const items = container.querySelectorAll('.thumbnail-card');
+            const maxIndex = Math.ceil(items.length / itemsPerPage) - 1;
+
+            if (prevButton) {
+                prevButton.style.display = sliderStates[sliderId].currentIndex === 0 ? 'none' : 'block';
+            }
+            if (nextButton) {
+                nextButton.style.display = sliderStates[sliderId].currentIndex >= maxIndex ? 'none' : 'block';
+            }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function initializePreview() {
+            const thumbnailCards = document.querySelectorAll('.thumbnail-card');
+
+            thumbnailCards.forEach(card => {
+                const video = card.querySelector('video');
+
+                card.addEventListener('mouseenter', () => {
+                    if (video) {
+                        video.currentTime = 0;
+                        video.play().catch(e => console.log('비디오 재생 실패:', e));
+                    }
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    if (video) {
+                        video.pause();
+                        video.currentTime = 0;
+                    }
+                });
+            });
+        }
+
+        // 번역 상태를 추적하는 변수
+        let currentLang = 'ko';
+
+        // 언어 변경 함수
+        async function changeLanguage(lang) {
+            if (currentLang === lang) return;
+            
+            const buttons = document.querySelectorAll('.lang-btn');
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+
+            if (lang === 'en') {
+                await translatePage();
+            } else {
+                await restoreOriginalText();
+            }
+            
+            currentLang = lang;
+        }
+
+        // 페이지 번역 함수
+        async function translatePage() {
+            const textElements = document.querySelectorAll(`
+                .content-title, 
+                .section-title, 
+                .content-genre,
+                .category-button,
+                .popup-button,
+                nav a,                  
+                footer p,
+                footer a,
+                footer span,
+                .footer-content,
+                .footer-links a,
+                .footer-text,
+                .btn,                   
+                .visually-hidden,       
+                h1, h2, h3, h4, h5, h6, 
+                .popup h2,              
+                .popup p                
+            `);
+            
+            try {
+                for (let element of textElements) {
+                    // 이미지나 SVG를 포함하는 요소는 건너뛰기
+                    if (element.querySelector('img') || element.querySelector('svg')) {
+                        continue;
+                    }
+                    
+                    // 원본 텍스트가 비어있거나 공백만 있는 경우 건너뛰기
+                    const text = element.textContent.trim();
+                    if (!text) {
+                        continue;
+                    }
+
+                    // 버튼 내부의 이미지/아이콘은 보존
+                    const originalHTML = element.innerHTML;
+                    const hasImage = originalHTML.includes('<img') || originalHTML.includes('<svg');
+                    
+                    if (!element.dataset.originalText) {
+                        element.dataset.originalText = text;
+                    }
+                    
+                    const response = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            [csrfHeader]: csrfToken
+                        },
+                        body: JSON.stringify({
+                            text: element.dataset.originalText,
+                            targetLanguage: 'en'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const translatedText = await response.text();
+                        if (hasImage) {
+                            // 이미지/아이콘이 있는 경우 HTML 구조 보존
+                            element.innerHTML = originalHTML.replace(text, translatedText);
+                        } else {
+                            // 일반 텍스트만 있는 경우
+                            element.textContent = translatedText;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('번역 중 오류 발생:', error);
+                alert('번역 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 원본 텍스트 복원 함수도 수정
+        async function restoreOriginalText() {
+            const textElements = document.querySelectorAll('[data-original-text]');
+            textElements.forEach(element => {
+                // 이미지/아이콘이 있는 경우 HTML 구조 보존
+                const originalHTML = element.innerHTML;
+                const hasImage = originalHTML.includes('<img') || originalHTML.includes('<svg');
+                
+                if (hasImage) {
+                    const currentText = element.textContent.trim();
+                    element.innerHTML = originalHTML.replace(currentText, element.dataset.originalText);
+                } else {
+                    element.textContent = element.dataset.originalText;
+                }
+            });
+        }
+
+        // 번역 버튼 클릭 이벤트
+        const translateButton = document.querySelector('.translate-icon');
+        if (translateButton) {
+            translateButton.addEventListener('click', translatePage);
+        }
+    </script>
+</th:block>
+
+<th:block layout:fragment="css">
+    <style>
+        .popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #121212;
+            color: #f1f1f1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .popup h2 {
+            margin-bottom: 10px;
+            font-size: 24px;
+            color: #f1f1f1;
+        }
+
+        .popup p {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #cccccc;
+        }
+
+        #popupContent {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+            overflow-y: auto;
+        }
+
+        #popupNavigation {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        /* 버튼 스타일 */
+        .popup-button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #6a0dad;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+
+        .popup-button:hover {
+            background-color: #7b1fab;
+        }
+
+        /* 팝팝업창 영화 카드 */
+        #popupContent .thumbnail-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 825px;
+            padding: 10px;
+            justify-items: center;
+        }
+
+        #popupContent .thumbnail-card {
+            width: 150px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: #222;
+        }
+        #popupContent .thumbnail-card div {
+            display: none; /* 타이틀 숨김김 */
+        }
+
+        #popupContent .thumbnail-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-bottom: 1px solid #555;
+        }
+
+        #popupContent .thumbnail-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #popupContent .thumbnail-title {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #f1f1f1;
+            text-align: center;
+        }
+
+        /* 선택된 카드 스타일일 */
+        #popupContent .thumbnail-card.selected {
+            border: 4px solid #6a0dad;
+            background-color: rgba(106, 13, 173, 0.2);
+        }
+
+        /* 반응형 레이아웃 */
+        @media (max-width: 768px) {
+            #popupContent .thumbnail-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            #popupContent .thumbnail-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            #popupContent .thumbnail-card {
+                width: 100px;
+                height: 140px;
+            }
+
+            #popupContent .thumbnail-card img {
+                height: 100px;
+            }
+
+            #popupContent .thumbnail-title {
+                font-size: 12px;
+            }
+        }
+        /* 썸네일 그리드 스타일 */
+        .thumbnail-grid {
+            display: flex;
+            gap : 12px;
+            padding: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .thumbnail-card {
+            flex: 0 0 calc(20% - 8px);
+            width: calc(20% - 8px);
+            aspect-ratio: 2/3;
+            position: relative;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .preview-container {
+            position: absolute;
+            top: -15px;
+            left: -15px;
+            width: calc(100% + 30px);
+            height: calc(100% + 30px);
+            z-index: 100;
+            background: #141414;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .thumbnail-card:hover .preview-container {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .preview-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .thumbnail-title {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .section-title {
+            color: white;
+            margin: 30px 20px 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* 링크 스타일 */
+        .thumbnail-link {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .thumbnail-link:hover {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .carousel-link {
+            display: block;
+            position: relative;
+            height: 100%;
+        }
+
+        .content-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            border-radius: 0 0 8px 8px;
+        }
+
+        .content-title {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .content-genre {
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        /* 썸네일 기본 정보 스타일 수정 */
+        .thumbnail-info {
+            padding: 10px 5px;
+        }
+
+        .thumbnail-genre {
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .thumbnail-card:hover .play-icon {
+            opacity: 1;
+        }
+
+        .play-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .category-button {
+            background-color: #6a0dad;
+            width: 200px; /* 버튼 너비 */
+            min-width: 200px;
+            height: 70px; /* 버튼 높이 */
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            border-radius: 40px;
+            border: none;
+            font-size: 25px;
+            transition: background-color 0.3s;
+            transition: all 0.3s ease;
+        }
+
+        .category-button:hover {
+            transform: translateY(-2px); /* 호버 시 살짝 위로 이동 */
+            box-shadow: 0px 6px 8px rgba(60, 4, 101, 0.74); /* 호버 시 테마 색상 그림자 */
+            background-color: #7b1fab; /* 호버 시 약간 밝은 색상 */
+        }
+
+        .category-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 30px 0;
+            padding: 10px;
+        }
+
+        .carousel-control-prev,
+        .carousel-control-next {
+            opacity: 0;
+            transition: opacity .15s ease;
+        }
+
+        .carousel-caption {
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            text-align: left;
+        }
+
+        .carousel-caption h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .genre-info {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .rating-info {
+            margin-top: 10px;
+        }
+
+        .rating {
+            color: #ffd700;
+        }
+
+        /* 순위 배지 위치 조정 */
+        .rank-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 2;
+        }
+
+        /* 호버 효과 개선 */
+        .thumbnail-card:hover {
+            transform: scale(1.05);
+            z-index: 1;
+        }
+
+        .carousel-control-prev,
+        .carousel-control-next {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+
+        .carousel-control-prev {
+            left: 10px;
+        }
+
+        .carousel-control-next {
+            right: 10px;
+        }
+
+        .carousel-control-prev:hover,
+        .carousel-control-next:hover {
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            display: inline-block;
+            width: 2rem;
+            height: 2.5rem;
+        }
+
+        .carousel-control-prev-icon svg,
+        .carousel-control-next-icon svg {
+            fill: white;
+        }
+
+        .content-slider {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        /* 썸네일 이미지 가로형으로 변경 */
+        .thumbnail-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        /* 콘텐츠 정보 스타일 */
+        .content-info {
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .content-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .content-genre {
+            font-size: 12px;
+            color: #ddd;
+        }
+
+        /* 순위 배지 */
+        .rank-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 2;
+        }
+
+        /* 네비게이션 버튼 */
+        .carousel-control-prev,
+        .carousel-control-next {
+            width: 40px;
+            height: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .carousel-control-prev {
+            left: 10px;
+        }
+
+        .carousel-control-next {
+            right: 10px;
+        }
+
+        /* 호버 효과 */
+        .thumbnail-card:hover {
+            transform: scale(1.05);
+            z-index: 3;
+            transition: transform 0.3s ease;
+        }
+
+        .content-slider:hover .carousel-control-prev,
+        .content-slider:hover .carousel-control-next {
+            opacity: 1;
+        }
+
+        /* 카테고리 네비게이션 바 추가 */
+        .category-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #121212;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        /* 추천 콘텐츠 섹션 */
+        #recommendedContents {
+            margin-top: 60px; /* 카테고리 네비게이션 바 높이만큼 여백 추가 */
+        }
+
+        /* TOP 10 섹션 */
+        .top10-section {
+            margin-top: 60px; /* 카테고리 네비게이션 바 높이만큼 여백 추가 */
+        }
+
+        /* 썸네일 섹션 */
+        .thumbnail-section {
+            margin-top: 60px; /* 카테고리 네비게이션 바 높이만큼 여백 추가 */
+        }
+
+        .category-button {
+            background-color: rgba(105, 13, 171, 0.7);;
+            font-size: 26px;
+            transition: background-color 0.3s;
+        }
+
+        .category-button:hover {
+            background-color: rgba(60, 4, 101, 0.74);
+        }
+
+        .category-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 10px;
+        }
+
+        /* 캐러셀 컨트롤 버튼 */
+        .carousel-control-prev,
+        .carousel-control-next {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* 캐러셀 스타일 */
+        #mainCarousel {
+            position: relative;
+            width: 100vw;
+            left: 50%;
+            right: 50%;
+            margin-left: -50vw;
+            margin-right: -50vw;
+            margin-top: -20px;
+            margin-bottom: 20px;
+        }
+
+        .carousel-inner {
+            height: 600px !important;
+            overflow: hidden;
+            width: 100vw !important;
+        }
+
+        .carousel-item {
+            height: 600px;
+            width: 100vw !important;
+        }
+
+        .carousel-item img {
+            width: 100vw !important;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .carousel-caption {
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            text-align: left;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 캐러셀 네비게이션 버튼 스타일 */
+        #mainCarousel .carousel-control-prev,
+        #mainCarousel .carousel-control-next {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #mainCarousel:hover .carousel-control-prev,
+        #mainCarousel:hover .carousel-control-next {
+            opacity: 1;
+        }
+
+        #mainCarousel .carousel-control-prev {
+            left: 20px;
+        }
+
+        #mainCarousel .carousel-control-next {
+            right: 20px;
+        }
+
+        /* 인디케이터 스타일 */
+        #mainCarousel .carousel-indicators {
+            margin-bottom: 20px;
+        }
+
+        #mainCarousel .carousel-indicators button {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            margin: 0 5px;
+        }
+
+        #mainCarousel .carousel-indicators button.active {
+            background-color: #fff;
+        }
+
+        /* 전체 영상 섹션 스타일 수정 */
+        #allContents .thumbnail-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            padding: 20px;
+        }
+
+        #allContents .thumbnail-card {
+            width: 100%;
+            aspect-ratio: 2/3;
+            position: relative;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        #allContents .thumbnail-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        #allContents .content-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+        }
+
+        /* 캐러셀 내용물 중앙 정렬 */
+        .carousel-content-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .fixed-icons {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .icon {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(105, 13, 171, 0.7);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .icon:hover {
+            background-color: rgba(60, 4, 101, 0.74);
+            transform: translateY(-5px);
+        }
+
+        .icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        /* 카테고리 버튼 반응형 스타일 */
+        .category-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .category-button {
+            background: rgba(106, 13, 173, 0.7);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 23px;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .category-button:hover {
+            background: rgba(106, 13, 173, 1);
+            transform: translateY(-2px);
+        }
+
+        .category-button.active {
+            background: rgba(106, 13, 173, 1);
+            box-shadow: 0 0 10px rgba(106, 13, 173, 0.5);
+        }
+
+        /* 반응형 미디어 쿼리 */
+        @media (max-width: 768px) {
+            .category-buttons {
+                gap: 5px;
+                padding: 5px;
+            }
+
+            .category-button {
+                padding: 6px 12px;
+                font-size: 12px;
+                min-width: 60px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .category-button {
+                padding: 4px 8px;
+                font-size: 11px;
+                min-width: 50px;
+            }
+        }
+    </style>
+</th:block>
+
+<div layout:fragment="content">
+    <!-- 팝업 섹션 -->
+    <div class="popup" id="popup" th:classappend="${isFirstLogin} ? '' : 'hidden'">
+        <div id="popupContent">
+            <h2>선호하는 영화를 선택해주세요</h2>
+            <p>최대 3개의 영화를 선택할 수 있습니다.</p>
+            <div id="movieList" class="thumbnail-grid">
+                <!-- 랜덤 영화 목록이 JavaScript를 통해 동적으로 추가됩니다 -->
+            </div>
+            <div id="popupNavigation">
+                <button id="saveSelection" class="popup-button">다음</button>
+                <button id="closePopup" class="popup-button" style="display: none;">종료</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+
+    <!-- 캐러셀 섹션 -->
+    <div id="mainCarousel" class="carousel slide" data-bs-ride="carousel">
+        <!-- 인디케이터 추가 -->
+        <div class="carousel-indicators">
+            <button th:each="item, stat : ${latestContents}"
+                    type="button"
+                    data-bs-target="#mainCarousel"
+                    th:data-bs-slide-to="${stat.index}"
+                    th:class="${stat.first ? 'active' : ''}"
+                    th:aria-current="${stat.first}">
+            </button>
+        </div>
+
+        <div class="carousel-inner">
+            <!-- 배너 데이터가 없을 경우 기본 이미지 표시 -->
+            <div th:if="${#lists.isEmpty(latestContents)}" class="carousel-item active">
+                <a href="#" class="carousel-link">
+                    <img src="/img/322236_455901_4735.jpg"
+                         class="d-block w-100"
+                         alt="기본 배너">
+                </a>
+            </div>
+
+            <!-- 배너 데이터가 있을 경우 해당 데이터 표시 -->
+            <div th:if="${not #lists.isEmpty(latestContents)}"
+                 th:each="banner, stat : ${latestContents}"
+                 th:class="'carousel-item ' + ${stat.first ? 'active' : ''}">
+                <a th:href="@{'/item/' + ${banner.itemId}}" class="carousel-link" target="_blank">
+                    <img th:if="${banner.bannerImgDto != null}"
+                         th:src="@{${banner.bannerImgDto.imgUrl}}"
+                         class="d-block w-100"
+                         th:alt="${banner.title}">
+                </a>
+            </div>
+        </div>
+
+
+        <!-- 네비게이션 버튼 스타일 수정 -->
+        <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+    <style>
+        /* 캐러셀 네비게이션 버튼 스타일 */
+        #mainCarousel .carousel-control-prev,
+        #mainCarousel .carousel-control-next {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #mainCarousel:hover .carousel-control-prev,
+        #mainCarousel:hover .carousel-control-next {
+            opacity: 1;
+        }
+
+        #mainCarousel .carousel-control-prev {
+            left: 20px;
+        }
+
+        #mainCarousel .carousel-control-next {
+            right: 20px;
+        }
+
+        /* 인디케이터 스타일 */
+        #mainCarousel .carousel-indicators {
+            margin-bottom: 20px;
+        }
+
+        #mainCarousel .carousel-indicators button {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            margin: 0 5px;
+        }
+
+        #mainCarousel .carousel-indicators button.active {
+            background-color: #fff;
+        }
+    </style>
+
+    <!-- 카테고리 버튼 섹션 -->
+    <div class="category-buttons">
+        <button class="category-button" onclick="filterCategory('LATEST')">최신영상</button>
+        <button class="category-button" onclick="filterCategory('DRAMA')">드라마</button>
+        <button class="category-button" onclick="filterCategory('MOVIE')">영화</button>
+        <button class="category-button" onclick="filterCategory('ANIMATION')">애니메이션</button>
+        <button class="category-button" onclick="filterCategory('ENTERTAINMENT')">예능</button>
+    </div>
+
+    <!-- 첫 번째 검색 결과가 있을 때 -->
+    <div th:if="${searchResults != null && !searchResults.isEmpty()}" id="searchResultsSection" class="top10-section">
+        <h2 class="section-title">검색결과: <span th:text="${searchQuery}"></span></h2>
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${searchResults}" class="thumbnail-card">
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailUrl}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 두 번째 검색 결과가 있을 때 -->
+    <div th:if="${(searchResults == null || searchResults.isEmpty()) && itemSearchResults != null && !itemSearchResults.isEmpty()}"
+    <h2 class="section-title">검색결과: <span th:text="${searchQuery}"></span></h2>
+    <div class="thumbnail-grid">
+        <div th:each="item, iterStat : ${itemSearchResults}" class="thumbnail-card">
+            <span class="rank-badge" th:text="${iterStat.count}">1</span>
+            <a th:if="${item != null}" th:href="@{'/item/' + ${item.id}}" class="thumbnail-link">
+                <img th:src="@{'/thumbnail/' + ${item.thumbnailDto?.thumbnailName}}"
+                     class="thumbnail-image" th:alt="${item.title}">
+                <div class="preview-container">
+                    <div class="play-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </div>
+                    <video th:if="${item.previewDto?.previewUrl != null}"
+                           th:src="@{'/preview/' + ${item.previewDto?.previewName}}"
+                           class="preview-video"
+                           muted
+                           preload="none">
+                    </video>
+                </div>
+                <div class="thumbnail-title" th:text="${item.title}"></div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 검색 결과가 모두 없을 때 -->
+<div th:if="${searchQuery != null && !searchQuery.isEmpty() && (searchResults == null || searchResults.isEmpty()) && (itemSearchResults == null || itemSearchResults.isEmpty())}" class="no-results">
+    <h1>검색 결과가 없습니다.</h1>
+</div>
+
+
+<!-- 실시간 TOP 10 콘텐츠 -->
+<div id="top10Trending" class="top10-section">
+    <h2 class="section-title">실시간 인기 TOP 10</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('top10Trending', 'prev')">
+                <span class="carousel-control-prev-icon">
+
+                </span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${top10Trending}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailDto?.thumbnailName}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+            <button class="carousel-control-next" type="button" onclick="slideContent('top10Trending', 'next')">
+                <span class="carousel-control-next-icon">
+
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 추천 콘텐츠 섹션 -->
+    <div id="recommendedContents" class="recommended-section" th:if="${recommendedContents != null}">
+        <h2 class="section-title">추천 콘텐츠</h2>
+        <div class="content-slider">
+            <button class="carousel-control-prev" type="button" onclick="slideContent('recommendedContents', 'prev')">
+                <span class="carousel-control-prev-icon">
+
+                    </span>
+            </button>
+
+
+            <div class="thumbnail-grid">
+                <div th:each="item, iterStat : ${recommendedContents}"
+                     th:class="'thumbnail-card' + (${iterStat.index < 5} ? ' active' : '')"
+                     th:data-index="${iterStat.index}">
+                    <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                        <img th:src="${item.thumbnailDto?.thumbnailName}"
+                             class="thumbnail-image"
+                             th:alt="${item.title}">
+                        <div class="preview-container">
+                            <div class="content-info">
+                                <div class="content-title" th:text="${item.title}"></div>
+                                <div class="content-genre">
+                                    <span th:text="${item.mainGenre}"></span>
+                                    <span th:if="${item.subGenre != null}"> · </span>
+                                    <span th:text="${item.subGenre}"></span>
+                                </div>
+                            </div>
+                            <div class="play-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </div>
+                            <video
+                                    src="/video2/preview_sample.mp4"
+                                    class="preview-video"
+                                    muted
+                                    preload="none">
+                            </video>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <button class="carousel-control-next" type="button" onclick="slideContent('recommendedContents', 'next')">
+                    <span class="carousel-control-next-icon">
+
+                    </span>
+            </button>
+        </div>
+    </div>
+</div>
+<!-- 실시간 TOP 10 콘텐츠 섹션 아래에 추가 -->
+<div id="top10Movies" class="top10-section">
+    <h2 class="section-title">인기 영화 TOP 10</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('top10Movies', 'prev')">
+                    <span class="carousel-control-prev-icon">
+                    </span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${top10Movies}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailDto?.thumbnailName}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <button class="carousel-control-next" type="button" onclick="slideContent('top10Movies', 'next')">
+                <span class="carousel-control-next-icon">
+
+                </span>
+        </button>
+    </div>
+</div>
+
+<!-- 실시간 인기 드라마 TOP 10 -->
+<div id="top10TvShows" class="top10-section">
+    <h2 class="section-title">인기 드라마 TOP 10</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('top10TvShows', 'prev')">
+                <span class="carousel-control-prev-icon">
+
+                </span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${top10TvShows}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailDto?.thumbnailName}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <button class="carousel-control-next" type="button" onclick="slideContent('top10TvShows', 'next')">
+                <span class="carousel-control-next-icon">
+
+                </span>
+        </button>
+    </div>
+</div>
+
+<!-- 애니메이션 섹션 -->
+<div id="top10Animation" class="top10-section">
+    <h2 class="section-title">인기 애니메이션 TOP 10</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('top10Animation', 'prev')">
+                <span class="carousel-control-prev-icon">
+
+                </span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${top10Animation}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailDto?.thumbnailName}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <button class="carousel-control-next" type="button" onclick="slideContent('top10Animation', 'next')">
+                <span class="carousel-control-next-icon">
+
+                </span>
+        </button>
+    </div>
+</div>
+
+<!-- 예능 섹션 -->
+<div id="top10Entertainment" class="top10-section">
+    <h2 class="section-title">인기 예능 TOP 10</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('top10Entertainment', 'prev')">
+                <span class="carousel-control-prev-icon">
+
+                </span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${top10Entertainment}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                    <img th:src="${item.thumbnailDto?.thumbnailName}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="content-info">
+                            <div class="content-title" th:text="${item.title}"></div>
+                            <div class="content-genre">
+                                <span th:text="${item.mainGenre}"></span>
+                                <span th:if="${item.subGenre != null}"> · </span>
+                                <span th:text="${item.subGenre}"></span>
+                            </div>
+                        </div>
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video
+                                src="/video2/preview_sample.mp4"
+                                class="preview-video"
+                                muted
+                                preload="none">
+                        </video>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <button class="carousel-control-next" type="button" onclick="slideContent('top10Entertainment', 'next')">
+                <span class="carousel-control-next-icon">
+
+                </span>
+        </button>
+    </div>
+</div>
+
+<!-- 전체 콘텐츠 섹션 -->
+<div id="latestContents" class="latest-section">
+    <h2 class="section-title">최신 콘텐츠</h2>
+    <div class="content-slider">
+        <button class="carousel-control-prev" type="button" onclick="slideContent('latestContents', 'prev')">
+            <span class="carousel-control-prev-icon"></span>
+        </button>
+
+        <div class="thumbnail-grid">
+            <div th:each="item, iterStat : ${items}" class="thumbnail-card">
+                <span class="rank-badge" th:text="${iterStat.count}">1</span>
+                <a th:if="${item != null}" th:href="@{'/item/' + ${item.id}}" class="thumbnail-link">
+                    <img th:src="@{'/thumbnail/' + ${item.thumbnailDto?.thumbnailName}}"
+                         class="thumbnail-image" th:alt="${item.title}">
+                    <div class="preview-container">
+                        <div class="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <video th:if="${item.previewDto?.previewUrl != null}"
+                               th:src="@{'/preview/' + ${item.previewDto?.previewName}}"
+                               class="preview-video"
+                               muted
+                               preload="none">
+                        </video>
+                    </div>
+                    <div class="thumbnail-title" th:text="${item.title}"></div>
+                </a>
+            </div>
+        </div>
+
+        <button class="carousel-control-next" type="button" onclick="slideContent('latestContents', 'next')">
+            <span class="carousel-control-next-icon"></span>
+        </button>
+    </div>
+</div>
+<!-- 예능 섹션 -->
+<div id="allContents" class="top10-section">
+    <h2 class="section-title">전체 영상</h2>
+
+    <div class="thumbnail-grid">
+        <style>
+
+        </style>
+        <div th:each="item, iterStat : ${allContents}" class="thumbnail-card">
+            <a th:if="${item != null}" th:href="@{'/crawled/' + ${item.tmdbId}}" class="thumbnail-link">
+                <img th:src="${item.thumbnailUrl}"
+                     class="thumbnail-image" th:alt="${item.title}">
+                <div class="preview-container">
+                    <div class="content-info">
+                        <div class="content-title" th:text="${item.title}"></div>
+                        <div class="content-genre">
+                            <span th:text="${item.mainGenre}"></span>
+                            <span th:if="${item.subGenre != null}"> · </span>
+                            <span th:text="${item.subGenre}"></span>
+                        </div>
+                    </div>
+                    <div class="play-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </div>
+                    <video
+                            src="/video2/preview_sample.mp4"
+                            class="preview-video"
+                            muted
+                            preload="none">
+                    </video>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 고정 아이콘 추가 -->
+<div class="fixed-icons">
+
+    <button onclick="scrollToTop()" class="icon top-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-bar-up" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M3.646 11.854a.5.5 0 0 0 .708 0L8 8.207l3.646 3.647a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 0 0 0 .708M2.4 5.2c0 .22.18.4.4.4h10.4a.4.4 0 0 0 0-.8H2.8a.4.4 0 0 0-.4.4"/>
+        </svg>
+    </button>
+
+    <a href="/api/chatbot" class="icon chat-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-chat-dots" viewBox="0 0 16 16">
+            <path d="M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+            <path d="m2.165 15.803.02-.004c1.83-.363 2.948-.842 3.468-1.105A9 9 0 0 0 8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6a10.4 10.4 0 0 1-.524 2.318l-.003.011a11 11 0 0 1-.244.637c-.079.186.074.394.273.362a22 22 0 0 0 .693-.125m.8-3.108a1 1 0 0 0-.287-.801C1.618 10.83 1 9.468 1 8c0-3.192 3.004-6 7-6s7 2.808 7 6-3.004 6-7 6a8 8 0 0 1-2.088-.272 1 1 0 0 0-.711.074c-.387.196-1.24.57-2.634.893a11 11 0 0 0 .398-2"/>
+        </svg>
+    </a>
+    <button id="chatButton" class="icon headset-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-headset" viewBox="0 0 16 16">
+            <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5"/>
+        </svg>
+    </button>
+</div>
+</div>
+</th:block>
+
+</html>

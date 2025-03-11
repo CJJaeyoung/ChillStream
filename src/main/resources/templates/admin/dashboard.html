@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+
+<th:block layout:fragment="script">
+    <!-- Chart.js 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</th:block>
+
+<th:block layout:fragment="css">
+    <style>
+        .chart-container {
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        h4 {
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(45deg, #6a0dad, #8a2be2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</th:block>
+
+<div layout:fragment="content">
+    <!-- 엑셀 다운로드 버튼 -->
+    <div class="dashboard-header">
+        <div class="header-buttons">
+            <a href="/admin/analytics/download" class="btn btn-primary me-2">콘텐츠 분석 다운로드</a>
+
+        </div>
+    </div>
+
+    <!-- 계 카드 섹션 -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h4>오늘의 방문자</h4>
+                <div class="stat-number" th:text="${todayVisitors}">0</div>
+                <small>일일 방문자 수</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h4>총 방문자</h4>
+                <div class="stat-number" th:text="${totalVisitors}">0</div>
+                <small>누적 방문자 수</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h4>이번 주 매출</h4>
+                <div class="stat-number">
+                    <span th:text="${#numbers.formatInteger(weeklyTotalRevenue, 0, 'COMMA')}">0</span>원
+                </div>
+                <small>최근 7일간 총 매출</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h4>총 매출</h4>
+                <div class="stat-number">
+                    <span th:text="${#numbers.formatInteger(totalRevenue, 0, 'COMMA')}">0</span>원
+                </div>
+                <small>누적 총 매출</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 그래프 섹션 -->
+    <div class="row mt-4">
+        <!-- 최근 7일 방문자 추이 차트 -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <h4>최근 7일 방문자 추이</h4>
+                <canvas id="recentVisitorChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- 주간 매출 차트 -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <h4>구독 유형별 일일 매출 현황</h4>
+                <canvas id="dailyDetailChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const recentStats = /*[[${recentDailyStats}]]*/ {};
+          const dailyDetailRevenue = [[${dailyRevenue}]];
+
+
+        new Chart(document.getElementById('recentVisitorChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(recentStats).map(date => {
+                    const d = new Date(date);
+                    return `${d.getMonth() + 1}/${d.getDate()}`;
+                }).reverse(),
+                datasets: [{
+                    label: '일별 방문자 수',
+                    data: Object.values(recentStats).reverse(),
+                    backgroundColor: 'rgba(106, 13, 173, 0.5)',
+                    borderColor: '#6a0dad',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'white'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `방문자 수: ${context.raw}명`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: 'white'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: 'white'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // 구독 유형별 일일 매출 차트
+        new Chart(document.getElementById('dailyDetailChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(dailyDetailRevenue),
+                datasets: [{
+                    label: 'BASIC 매출',
+                    data: [6900, 0, 6900, 6900, 6900, 0, 6900],
+                    backgroundColor: 'rgba(138, 43, 226, 0.7)',
+                    borderRadius: 5
+                }, {
+                    label: 'PREMIUM 매출',
+                    data: [9900, 9900, 9900, 0, 9900, 9900, 0],
+                    backgroundColor: 'rgba(147, 112, 219, 0.7)',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: { color: 'white' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.raw.toLocaleString()}원`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stacked: true,
+                        ticks: {
+                            color: 'white',
+                            callback: function(value) {
+                                return value.toLocaleString() + '원';
+                            }
+                        },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    x: {
+                        stacked: true,
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+
+    </script>
+
+    <!-- 기존 차트 아래에 추가 -->
+    <div class="row mt-4">
+        <!-- 월간 인기 콘텐츠 차트 -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <h4>월간 인기 콘텐츠 TOP 10</h4>
+                <canvas id="monthlyTrendingChart"></canvas>
+            </div>
+        </div>
+        <!-- 주간 인기 콘텐츠 차트 -->
+        <div class="col-md-6">
+            <div class="chart-container">
+                <h4>주간 인기 콘텐츠 TOP 10</h4>
+                <canvas id="weeklyTrendingChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        // 기존 스크립트 유지...
+
+        // 월간 인기 콘텐츠 데이터
+        const monthlyTrending = /*[[${monthlyTrending}]]*/ [];
+        const monthlyChart = new Chart(document.getElementById('monthlyTrendingChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: monthlyTrending.map(item => item.title),
+                datasets: [{
+                    label: '평점',
+                    data: monthlyTrending.map(item => item.voteAverage),
+                    backgroundColor: 'rgba(106, 13, 173, 0.5)',
+                    borderColor: '#6a0dad',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                }, {
+                    label: '조회수',
+                    data: monthlyTrending.map(item => item.popularity),
+                    backgroundColor: 'rgba(138, 43, 226, 0.5)',
+                    borderColor: '#8a2be2',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        labels: { color: 'white' }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    x: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y1: {
+                        position: 'right',
+                        ticks: { color: 'white' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // 주간 인기 콘텐츠 차트
+        const weeklyTrending = /*[[${weeklyTrending}]]*/ [];
+        const weeklyChart = new Chart(document.getElementById('weeklyTrendingChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: weeklyTrending.map(item => item.title),
+                datasets: [{
+                    label: '평점',
+                    data: weeklyTrending.map(item => item.voteAverage),
+                    backgroundColor: 'rgba(106, 13, 173, 0.5)',
+                    borderColor: '#6a0dad',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                }, {
+                    label: '조회수',
+                    data: weeklyTrending.map(item => item.popularity),
+                    backgroundColor: 'rgba(138, 43, 226, 0.5)',
+                    borderColor: '#8a2be2',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        labels: { color: 'white' }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    x: {
+                        ticks: { color: 'white' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y1: {
+                        position: 'right',
+                        ticks: { color: 'white' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    </script>
+
+</div>
+</html>

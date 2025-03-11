@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+
+<!-- 사용자 스크립트 추가 -->
+<th:block layout:fragment="script">
+  <script th:inline="javascript">
+    $(document).ready(function(){
+            var errorMessage = [[${errorMessage}]];
+            if(errorMessage != null){
+            alert(errorMessage);
+            }
+      bindDomEvent1();
+      bindDomEvent2();
+    });
+
+    function bindDomEvent1(){
+      $(".videoFile.form-control").on("change", function(){
+        var fileName = $(this).val().split("\\").pop();
+        var fileExt = fileName.substring(fileName.lastIndexOf(".")+1);
+        fileExt = fileExt.toLowerCase();
+
+        if(fileExt != "avi" && fileExt != "mp4" && fileExt != "mov"
+        && fileExt != "wmv" && fileExt != "mkv"){
+          alert("해당하는 확장자는 등록이 불가능합니다.");
+          $(this).val("");
+          return;
+        }
+      });
+    }
+
+    function bindDomEvent2(){
+      $(".subtitleFile.form-control").on("change", function(){
+        var fileName = $(this).val().split("\\").pop();
+        var fileExt = fileName.substring(fileName.lastIndexOf(".")+1);
+        fileExt = fileExt.toLowerCase();
+
+        if(fileExt != "vtt"){
+          alert("vtt 확장자만 업로드할 수 있습니다");
+          $(this).val("");
+          return;
+        }
+      });
+    }
+  </script>
+</th:block>
+<!-- 사용자 CSS 추가 -->
+<th:block layout:fragment="css">
+  <style>
+    body {
+        background: linear-gradient(to right, #000000, #141414);
+        min-height: 100vh;
+        position: relative;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(106, 13, 173, 0.05) 0%, transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(106, 13, 173, 0.05) 0%, transparent 40%);
+        pointer-events: none;
+    }
+
+    .container {
+        max-width: 900px;
+        padding: 40px;
+        background: rgba(20, 20, 20, 0.95);
+        color: #ffffff;
+        border-radius: 12px;
+        margin-top: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 32px rgba(106, 13, 173, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: visible;
+    }
+
+    form.container {
+        margin-bottom: 50px;
+    }
+
+    .container::before {
+        content: '';
+        position: absolute;
+        top: -1px;
+        left: -1px;
+        right: -1px;
+        bottom: -1px;
+        background: linear-gradient(45deg, transparent, rgba(106, 13, 173, 0.1), transparent);
+        border-radius: 12px;
+        z-index: -1;
+    }
+
+    .input-group {
+        margin-bottom: 25px;
+        background: rgba(34, 34, 34, 0.8);
+        border-radius: 8px;
+        overflow: hidden;
+        width: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .input-group:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(106, 13, 173, 0.1);
+    }
+
+    .input-group-text {
+        background: rgba(51, 51, 51, 0.9);
+        color: #ffffff;
+        border: none;
+        min-width: 150px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        height: 45px;
+        text-transform: uppercase;
+        font-size: 0.9em;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        background: rgba(34, 34, 34, 0.8);
+        border: none;
+        color: #ffffff;
+        height: 45px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .form-control:focus {
+        background: rgba(51, 51, 51, 0.9);
+        color: #ffffff;
+        box-shadow: 0 0 0 2px rgba(106, 13, 173, 0.3);
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #6a0dad, #8a2be2);
+        border: none;
+        padding: 12px 40px;
+        font-weight: 600;
+        font-size: 16px;
+        margin-top: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(106, 13, 173, 0.2);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #8a2be2, #6a0dad);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(106, 13, 173, 0.3);
+    }
+
+    .h2 {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 40px;
+        position: relative;
+        padding-bottom: 30px;
+    }
+
+    .h2::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(to right, #6a0dad, transparent);
+    }
+
+    .fieldError {
+        color: #8a2be2;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+
+    /* 파일 input 스타일링 */
+    .input-group.mb3 {
+        display: flex;
+        align-items: stretch;
+        margin-bottom: 25px;
+    }
+
+    .input-group.mb3 .input-group-text {
+        height: 45px;
+        padding: 8px 13px;
+        display: flex;
+        align-items: center;
+    }
+
+    .input-group.mb3 .form-control {
+        height: 45px;
+        padding: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .input-group.mb3 .form-control::file-selector-button {
+        height: 45px;
+        margin: 0 15px 0 0;
+        padding: 0 15px;
+        border: none;
+        background: rgba(51, 51, 51, 0.9);
+        color: #ffffff;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .input-group.mb3 .form-control::file-selector-button:hover {
+        background: rgba(106, 13, 173, 0.9);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .container {
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    .file-upload-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .file-upload-container .input-group {
+        margin-bottom: 0;
+    }
+
+    .current-file {
+        flex: 1;
+        padding: 0 15px;
+        display: flex;
+        align-items: center;
+        font-size: 0.9em;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(51, 51, 51, 0.4);
+        border-radius: 0 8px 8px 0;
+    }
+
+    .file-path {
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+  </style>
+</th:block>
+
+<div layout:fragment="content">
+  <form role="form" class="container" method="post" enctype="multipart/form-data" th:object="${videoFormDto}">
+    <input type="hidden" th:field="*{itemId}">
+    <p class="h2">영상 등록</p>
+    <input type="hidden" th:field="*{id}">
+    <div class="input-group">
+      <div class="input-group-prepend">
+        <span class="input-group-text">제목</span>
+      </div>
+      <input type="text" th:field="*{title}" class="form-control" placeholder="제목을 입력해주세요.">
+    </div>
+    <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="fieldError">Incorrect data</p>
+
+    <div class="input-group">
+      <div class="input-group-prepend">
+        <span class="input-group-text">회차</span>
+      </div>
+      <input type="number" th:field="*{episodeNumber}" class="form-control" placeholder="회차를 입력해주세요 (시리즈물일 때만)">
+    </div>
+    <p th:if="${#fields.hasErrors('episodeNumber')}" th:errors="*{episodeNumber}" class="fieldError">Incorrect data</p>
+
+
+    <div th:if="${videoFormDto.videoDto == null}">
+      <div class="input-group mb3">
+        <label class="input-group-text">동영상</label>
+        <input type="file" class="videoFile form-control" name="videoFile">
+      </div>
+    </div>
+    <div th:if="${videoFormDto.subtitleDto == null}">
+      <div class="input-group mb3">
+        <label class="input-group-text">자막</label>
+        <input type="file" class="subtitleFile form-control" name="subtitleFile">
+      </div>
+    </div>
+
+    <!-- 컨텐츠 수정 -->
+    <div th:if="${videoFormDto.videoDto != null}">
+      <div class="file-upload-container">
+        <div class="input-group mb3">
+          <label class="input-group-text">동영상</label>
+          <div class="current-file" th:if="${videoFormDto.videoDto.videoUrl != null}">
+            <span class="file-path" th:text="${videoFormDto.videoDto.videoUrl}">현재 파일</span>
+          </div>
+        </div>
+        <div class="input-group mb3">
+          <label class="input-group-text">파일 변경</label>
+          <input type="file" class="videoFile form-control" name="videoFile">
+        </div>
+      </div>
+    </div>
+
+    <div th:if="${videoFormDto.subtitleDto != null}">
+      <div class="file-upload-container">
+        <div class="input-group mb3">
+          <label class="input-group-text">자막</label>
+          <div class="current-file" th:if="${videoFormDto.subtitleDto.subtitleUrl != null}">
+            <span class="file-path" th:text="${videoFormDto.subtitleDto.subtitleUrl}">현재 파일</span>
+          </div>
+        </div>
+        <div class="input-group mb3">
+          <label class="input-group-text">파일 변경</label>
+          <input type="file" class="subtitleFile form-control" name="subtitleFile">
+        </div>
+      </div>
+    </div>
+
+    <div th:if="${#strings.isEmpty(videoFormDto.id)}" style="text-align : center">
+      <button th:formaction="@{'/admin/'+ ${videoFormDto.itemId}+ '/video/new'}" type="submit" class="btn btn-primary">저장</button>
+    </div>
+    <div th:unless="${#strings.isEmpty(videoFormDto.id)}" style="text-align : center">
+      <button th:formaction="@{'/admin/' + ${videoFormDto.itemId}+'/video/'+${videoFormDto.id}}" type="submit" class="btn btn-primary">수정</button>
+    </div>
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+  </form>
+</div>
+</html>

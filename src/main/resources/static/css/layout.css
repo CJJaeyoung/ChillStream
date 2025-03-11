@@ -1,0 +1,264 @@
+html{
+    position: relative;
+    min-height: 100%;
+    margin: 0;
+}
+body{
+    min-height: 100%
+}
+
+.header{
+                background-color: #141414; /* 검정 배경 */
+                color: #ffffff; /* 흰색 텍스트 */
+                font-family: 'Arial', sans-serif;
+                position: relative;
+                width: 100%;
+                top: 0;
+}
+
+
+.footer {
+    background-color: #141414;
+    color: #6E6E6E;
+    padding: 15px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    position: relative; /* 푸터를 문서 흐름에 맞추기 */
+    text-align: center;
+    width: 100%;
+    bottom: 0;
+}
+
+
+.content{
+    margin-bottom: 100px;
+    margin-top: 50px;
+    margin-left: 50px;
+    margin-right: 50px;
+}
+
+
+     /* 전체 배경 및 텍스트 기본 설정 */
+        body {
+            background-color: #141414; /* 검정 배경 */
+            color: #ffffff; /* 흰색 텍스트 */
+            font-family: 'Arial', sans-serif;
+        }
+
+
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 24px;
+            color: #fff;
+        }
+
+        .navbar-brand:hover {
+            color: #ddd;
+        }
+
+        .navbar-nav .nav-link {
+            color: #ffffff;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: #c0c0ff; /* 밝은 보라색 텍스트 */
+        }
+
+        .navbar-toggler {
+            border-color: #c0c0ff;
+        }
+
+        .navbar-toggler-icon {
+            background-image: none;
+            color: #c0c0ff;
+        }
+
+      nav .dropdown-menu {
+            background-color: #2a2a2a !important; /* 어두운 회색 */
+
+            color: #ffffff !important; /* 흰색 텍스트 */
+            box-shadow: none; /* 기본 그림자 제거 */
+        }
+
+        nav .dropdown-item {
+            color: #ffffff !important; /* 흰색 텍스트 */
+        }
+
+        nav .dropdown-item:hover,
+        nav .dropdown-item:focus {
+            background-color: #6a0dad !important; /* 보라색 배경 */
+            color: #ffffff !important; /* 흰색 텍스트 */
+        }
+        /* 드롭다운 메뉴 오른쪽 끝 조정 */
+        .dropdown-menu-end {
+            left: auto !important;
+            right: 0 !important;
+        }
+
+        /* 버튼에 부드러운 라운드 처리 */
+        .btn {
+            background-color: #6a0dad;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .btn:hover {
+            background-color: #7b1fab; /* 밝은 보라 */
+            color: #ffffff;
+        }
+
+        nav .dropdown-item:focus,
+        nav .dropdown-item:active {
+        background-color: #6a0dad !important; /* 클릭/포커스 시 배경색 */
+        color: #ffffff !important; /* 클릭/포커스 시 텍스트 색상 */
+        outline: none !important; /* 브라우저 기본 아웃라인 제거 */
+        box-shadow: none !important; /* 추가된 그림자 제거 */
+        }
+
+
+
+
+/* 검색 섹션 스타일 */
+#search-section {
+    margin: 0 15px; /* 검색 섹션 간격 */
+}
+
+#search-section .search-input {
+    background-color: #2a2a2a; /* 어두운 회색 배경 */
+    border: 1px solid #6a0dad; /* 보라색 테두리 */
+    color: #fff; /* 흰색 텍스트 */
+    padding: 10px 15px; /* 내부 여백 */
+    border-radius: 10px 0 0 10px; /* 왼쪽 둥근 모서리 */
+    font-size: 12px;
+    outline: none; /* 기본 아웃라인 제거 */
+    transition: all 0.3s ease-in-out; /* 부드러운 전환 효과 */
+}
+
+#search-section .search-input::placeholder {
+    color: #aaa; /* 회색 텍스트 */
+    font-style: italic; /* 기울임꼴 */
+}
+
+#search-section .search-input:focus {
+    border-color: #8344bd; /* 더 밝은 보라색 */
+    background-color: #3a3a3a; /* 약간 밝은 배경 */
+    box-shadow: 0 0 5px #8344bd; /* 보라색 글로우 효과 */
+}
+
+/* 검색 버튼 스타일 */
+#search-section .search-btn {
+    background-color: #6a0dad; /* 보라색 배경 */
+    color: #fff; /* 흰색 텍스트 */
+    border: 1px solid #6a0dad; /* 보라색 테두리 */
+    border-radius: 0 10px 10px 0; /* 오른쪽 둥근 모서리 */
+    padding: 0px 10px; /* 버튼 내부 여백 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 부드러운 전환 */
+}
+
+#search-section .search-btn:hover {
+    background-color: #8344bd; /* 더 밝은 보라색 */
+    color: #ffffff; /* 흰색 유지 */
+    box-shadow: 0 0 10px #8344bd; /* 밝은 보라색 그림자 */
+}
+
+#search-section .search-btn:focus {
+    background-color: #5a0882; /* 진한 보라색 */
+    outline: none; /* 아웃라인 제거 */
+    box-shadow: 0 0 10px #5a0882; /* 포커스 그림자 */
+}
+
+/* 돋보기 아이콘 크기 */
+#search-section .search-btn .fas {
+    font-size: 18px; /* 아이콘 크기 */
+}
+
+.language-selector {
+    display: flex;
+    gap: 10px;
+    margin-left: 20px;
+    align-items: center;
+    height: 40px;
+    position: relative;
+    z-index: 100;
+}
+
+.lang-btn {
+    background: transparent;
+    border: 2px solid rgba(106, 13, 173, 0.7);
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 14px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.lang-btn:hover {
+    background: rgba(106, 13, 173, 0.2);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 8px rgba(106, 13, 173, 0.2);
+    border-color: rgba(106, 13, 173, 1);
+}
+
+.lang-btn.active {
+    background: linear-gradient(45deg, rgba(106, 13, 173, 0.8), rgba(147, 51, 234, 0.8));
+    border-color: transparent;
+    box-shadow: 0 2px 12px rgba(106, 13, 173, 0.4);
+    position: relative;
+}
+
+.lang-btn.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    animation: shine 2s infinite;
+}
+
+@keyframes shine {
+    to {
+        left: 100%;
+    }
+}
+
+.lang-btn:active {
+    transform: translateY(0) scale(0.95);
+    transition: transform 0.1s;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .language-selector {
+        margin-left: 10px;
+    }
+    
+    .lang-btn {
+        padding: 4px 8px;
+        min-width: 70px;
+        font-size: 12px;
+    }
+}
+
