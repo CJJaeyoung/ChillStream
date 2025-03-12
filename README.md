@@ -426,7 +426,7 @@
 
 </details>
 
-<details><summary>🧑🏻‍💻 최재영
+<details><summary>🧑🏻‍💻💻 최재영
 </summary>
 
 <br>
