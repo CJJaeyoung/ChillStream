@@ -429,11 +429,203 @@
 <details><summary>🧑🏻‍💻 최재영
 </summary>
 
+<br>
+
+
+# 비밀번호 재설정 토큰 검증문제
+
+
+## 📝 문제 설명
+비밀번호 재설정 과정에서 가장 큰 문제는 토큰의 유효성 검사 및 관리였습니다.
+비밀번호 재설정 링크는 이메일을 통해 사용자에게 전송되며, 이 링크에는 token이 포함되어 있습니다.
+
+<br>
+
+---
+
+
+## 🔍 문제 발생 경과
+- **토큰이 누락되거나, 클라이언트에서 올바르게 전달되지 않는 문제 :** 사용자가 비밀번호 재설정 페이지에 접근할 때, URL에서 totken을 추출해야한다. 하지만 토큰이 제대로 전달되지 않으면 서버에서 "유효하지 않은 토큰입니다."라는 오류가 발생했습니다.  
+    
+
+- **만료된 토큰을 사용한 경우**: `토큰은 일정 시간 이후 만료되도록 설정되어 있지만, 만료된 토큰을 사용했을 때 사용자에게 적절한 피드백을 제공해야 했습니다. 
+
+- **서버에서 토큰 검증 시 예외 처리 부족 :** 서버에서 token을 조회할 때, 해당 토큰이 없거나 유효하지 않으면 적절한 오류 메시지를 반환해야 했습니다.
+하지만 예외 처리가 미흡하여 정확한 원인을 사용자에게 안내하지 못하는 문제가 있었습니다.
+
+<br>
+
+---
+
+## 🛠️  해결 방안 및 코드 설명
+
+
+
+ <details><summary>클라이언트 측에서 토큰을 올바르게 전달
+</summary>
+
+```
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+        document.getElementById('resetToken').value = token;
+    }
+
+```
+
+1. 사용자가 비밀번호 재설정 페이지에 접근하면, URLSearchParams를 이용해 토큰을 자동으로 가져와 `<input type="hidden">`에 저장하도록 했습니다.
+2. 이를 통해 사용자가 직접 토큰을 입력하지 않아도 서버로 올바른 요청을 보낼 수 있습니다.
+
+<br>
+
+</details>
+
+<details><summary>서버에서 토큰 검증 및 오류 처리 강화
+</summary>
+
+```
+
+ @GetMapping("/reset-password")
+   public String showResetPasswordPage(@RequestParam("token") String token, Model model) {
+
+
+      if (token == null || token.trim().isEmpty()) {
+         throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+      }
+
+      Member member = memberRepository.findByPasswordResetToken(token)
+              .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 토큰입니다."));
+
+      if (member.getTokenExpiryDate() == null || member.getTokenExpiryDate().isBefore(LocalDateTime.now())) {
+         throw new IllegalArgumentException("토큰이 만료되었습니다.");
+      }
+
+      model.addAttribute("email", member.getEmail());
+      model.addAttribute("token", token);
+      return "members/reset-password";
+   }
+
+
+```
+
+
+1. **토큰 유효성 검사 강화**
+
+- token == null || token.trim().isEmpty()를 검사하여 빈 토큰을 방지했습니다.
+- 토큰이 없으면 즉시 예외를 발생시켜 잘못된 요청을 처리합니다.
+
+2. **DB에서 토큰 조회 시 예외 처리**
+
+- .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 토큰입니다."))
+- 잘못된 토큰이 들어오면 IllegalArgumentException을 발생시켜 클라이언트에 오류 메시지를 반환합니다.
+
+3. **토큰 만료 여부 확인**
+
+- if (member.getTokenExpiryDate() == null || member.getTokenExpiryDate().isBefore(LocalDateTime.now()))
+- 토큰 만료 시간이 현재 시각보다 이전이면 "토큰이 만료되었습니다."라는 오류를 반환하도록 설정했습니다.
+
+<br>
+
+</details>
+
+
+<details><summary>토큰 검증 후 비밀번호 재설정 로직 개선
+</summary>
+
+```
+
+@PostMapping("/reset-password")
+   public ResponseEntity<String> resetPassword(
+           @RequestParam("token") String token,
+           @RequestParam("newPassword") String newPassword,
+           @RequestParam("confirmPassword") String confirmPassword) {
+
+      System.out.println("Received token: " + token);
+      if (token == null || token.trim().isEmpty()) {
+         return ResponseEntity.badRequest().body("토큰이 누락되었습니다.");
+      }
+      if (newPassword == null || newPassword.trim().isEmpty()) {
+         return ResponseEntity.badRequest().body("새 비밀번호가 누락되었습니다.");
+      }
+      if (confirmPassword == null || confirmPassword.trim().isEmpty()) {
+         return ResponseEntity.badRequest().body("비밀번호 확인이 누락되었습니다.");
+      }
+      if (!newPassword.equals(confirmPassword)) {
+         return ResponseEntity.badRequest().body("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      }
+
+      try {
+         Member member = memberRepository.findByPasswordResetToken(token)
+                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 토큰입니다."));
+         if (member.getTokenExpiryDate() == null || member.getTokenExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body("토큰이 만료되었습니다.");
+         }
+
+         member.setPassword(passwordEncoder.encode(newPassword));
+
+         member.setPasswordResetToken(null);
+         member.setTokenExpiryDate(null);
+         memberRepository.save(member);
+
+         return ResponseEntity.ok("비밀번호가 성공적으로 재설정되었습니다.");
+
+      } catch (IllegalArgumentException e) {
+         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+      } catch (Exception e) {
+         e.printStackTrace();
+         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류가 발생했습니다.");
+      }
+   }
+
+```
+
+1. **토큰 누락 방지**
+
+- if (token == null || token.trim().isEmpty()) 조건을 추가하여, 클라이언트가 token을 보내지 않았을 때 즉시 오류를 반환하도록 했습니다.
+2. **비밀번호 확인 검사**
+
+- if (!newPassword.equals(confirmPassword))
+- 사용자가 입력한 두 비밀번호가 다르면 오류 메시지를 반환하도록 설정했습니다.
+3. **토큰이 만료되었는지 확인**
+
+- if (member.getTokenExpiryDate().isBefore(LocalDateTime.now()))
+-토큰이 만료된 경우 "토큰이 만료되었습니다." 메시지를 반환하도록 설정했습니다.
+4. **토큰 초기화**
+
+- member.setPasswordResetToken(null);
+- member.setTokenExpiryDate(null);
+- 비밀번호가 재설정된 후, 토큰을 제거하여 동일한 토큰을 재사용할 수 없도록 했습니다.
+
+<br>
+<br>
+
+---
+
+</details>
+
+
+## ✅결론
+
+**비밀번호 재설정 과정에서 발생했던 토큰 유효성 검사, 만료 처리, 오류 메시지 반환 등의 문제를 해결하기 위해 다음과 같은 개선을 수행했습니다.**
+- 클라이언트 측에서 URL 토큰을 자동으로 추출하여 전송
+- 서버 측에서 토큰이 없거나 유효하지 않은 경우 상세한 오류 메시지 반환
+- 비밀번호 검증 및 토큰 만료 검사 추가
+- 비밀번호 변경 후 토큰을 제거하여 보안 강화
+
+이러한 개선을 통해 보다 안전하고 사용자 친화적인 비밀번호 재설정 시스템을 구현할 수 있었습니다. 
+
+---
+
+
+
+
 
 ## 
 
 
 </details>
+
 <details><summary>👩💻 김민주
 </summary>
 
